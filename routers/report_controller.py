@@ -42,7 +42,7 @@ def find_all_reports(
             func.count(intrusion_alias.id).label("intrusion_count")
         )
         .outerjoin(intrusion_alias, intrusion_alias.report_id == Report.id)
-        .group_by(Report.id)
+        .group_by(Report.id).order_by(Report.created_at)
     )
 
     if user.role != RoleEnum.admin:

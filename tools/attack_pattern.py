@@ -1,42 +1,53 @@
 import re
 
+import re
+
 access_attack_patterns = {
-    
     "SQL Injection": {
         "pattern": re.compile(
-        r"""(
-            (?:'|")?\s*(?:or|and)\s+\d+\s*=\s*\d+                           # ' or 1=1
-            |union(?:\s|%20|/\*.*?\*/)*all(?:\s|%20|/\*.*?\*/)*select       # UNION ALL SELECT
-            |select\s+[\w\*\s,]+\s+from                                     # SELECT * FROM ...
-            |insert\s+into\s+\w+\s*\(.*?\)\s*values\s*\(.*?\)              # INSERT INTO (...) VALUES (...)
-            |drop\s+table\s+\w+                                             # DROP TABLE users
-            |update\s+\w+\s+set\s+\w+\s*=\s*.+                              # UPDATE users SET ...
-            |delete\s+from\s+\w+                                            # DELETE FROM users
-            |(?:--|#|/\*.*?\*/)\s*$                                         # SQL comment syntax
-            |char\(\d+\)                                                   # char(113)
-            |concat\([^)]{1,100}\)                                          # concat(...)
-            |load_file\([^)]{1,100}\)                                       # load_file(...)
-            |outfile\s+[^\s]+                                               # OUTFILE '/path'
-            |sleep\(\s*\d+\s*\)                                             # sleep(5)
-            |benchmark\(\s*\d+,\s*[^)]+\)                                   # benchmark(1000000,md5(...))
-            |0x[0-9A-Fa-f]{6,}                                              # hex payload
-            |information_schema                                            # common SQLi target
-            |mysql\.user                                                   # sensitive MySQL table
-            |pg_catalog\.pg_user                                           # PostgreSQL user table
-        )""",
-        re.IGNORECASE
+            r"""(
+                (?:'|")?\s*(?:or|and)\s+['"0-9]+\s*=\s*['"0-9]+  # ' or '1'='1
+                |union(?:\s|%20|\+|\*)*select\s+[\w\*\s,]+(?:--)?  # UNION SELECT null--
+                |select\s+[\w\*\s,]+\s+from\s+[\w\.]+            # SELECT * FROM
+                |insert\s+into\s+\w+\s*\(.*?\)\s*values\s*\(.*?\)  # INSERT INTO ... VALUES
+                |drop\s+table\s+\w+                              # DROP TABLE
+                |update\s+\w+\s+set\s+\w+\s*=\s*.+               # UPDATE ... SET
+                |delete\s+from\s+\w+                             # DELETE FROM
+                |(?:--|#|/\*.*?\*/)\s*                           # SQL comments: --, #, /*
+                |(?:char|concat|load_file|benchmark|sleep)\([^\)]*\)  # char(), sleep()
+                |0x[0-9A-Fa-f]{6,}                               # 0xabcdef
+                |information_schema|mysql\.user|pg_catalog\.pg_user  # DB tables
+                |'\s*--\s*                                       # '--
+            )""",
+            re.IGNORECASE
         ),
         "severity": 5
     },
     "XSS Attack": {
         "pattern": re.compile(
-            r"(<script.*?>|javascript:|document\.cookie|onerror=|onload=|alert\(|eval\()",
+            r"""(
+                <script.*?>                                     # <script> tags
+                |javascript:                                    # javascript: URLs
+                |document\.cookie                               # document.cookie
+                |on[a-z]+\s*=\s*['"][^'"]+['"]                  # on* event handlers
+                |alert\(|confirm\(|prompt\(|eval\(|execScript\(  # alert(), eval()
+                |<svg.*?>                                       # <svg> tags
+                |<img\s+[^>]*src\s*=\s*['"]?[^'"]*onerror\s*=   # <img src=x onerror=>
+                |window\.location\s*=                           # window.location
+            )""",
             re.IGNORECASE
         ),
         "severity": 3
     },
     "Directory Traversal": {
-        "pattern": re.compile(r"(\.\./|\.\.\\|/etc/passwd|/etc/shadow|boot.ini)", re.IGNORECASE),
+        "pattern": re.compile(
+            r"""(
+                \.\./|\.\.\\|\.\.\/|\.\.\\                      # ../ or ..\
+                |%2e%2e[/\\]                                   # URL-encoded ../ or ..\
+                |/etc/passwd|/etc/shadow|/proc/self/environ|boot.ini  # Sensitive files
+            )""",
+            re.IGNORECASE
+        ),
         "severity": 4
     },
     "Command Injection": {
@@ -52,42 +63,61 @@ access_attack_patterns = {
     },
     "LFI/RFI": {
         "pattern": re.compile(
-            r"(\.\./|\.\.\\|/etc/passwd|/etc/shadow|/proc/self/environ|"
-            r"boot.ini|windows/win.ini|php://|data://|file://|expect://|"
-            r"(?:[?&]file=|include=|path=)?(?:http://|https://)[^\s]*|"
-            r"169\.254\.169\.254)",
+            r"""(
+                \.\./|\.\.\\                                   # ../ or ..\
+                |%2e%2e[/\\]                                   # URL-encoded ../ or ..\
+                |/etc/passwd|/etc/shadow|/proc/self/environ|boot.ini  # Sensitive files
+                |.git/config|.env|phpinfo.php|.*\.bak           # Common webapp files
+                |php://|data://|file://|expect://              # Dangerous protocols
+                |(?:[?&](file|include|path|page|redirect)=)?(?:http://|https://)[^\s]*  # RFI: http://evil.com
+                |169\.254\.169\.254                            # Metadata service
+            )""",
             re.IGNORECASE
         ),
         "severity": 4
     },
     "Unusual HTTP Methods": {
-        "pattern": re.compile(r"\b(CONNECT|TRACE|TRACK|OPTIONS)\b", re.IGNORECASE),
+        "pattern": re.compile(r"\b(CONNECT|TRACE|TRACK|OPTIONS|DEBUG|MOVE|COPY)\b", re.IGNORECASE),
         "severity": 2
     },
     "Automated Scanning": {
         "pattern": re.compile(
-            r"(nikto|sqlmap|wvs|acunetix|dirb|nmap|zgrab|masscan|hydra|burp|python-requests)",
+            r"(nikto|sqlmap|wvs|acunetix|dirb|nmap|zgrab|masscan|hydra|burp|python-requests|libwww-perl|httperf|w3af)",
             re.IGNORECASE
         ),
         "severity": 3
     },
     "Encoded Payloads": {
         "pattern": re.compile(
-            r"(?:%[0-9A-Fa-f]{2}){6,}|"  # on augmente le seuil à 6+ caractères encodés
-            r"\b(?:[A-Za-z0-9+/]{30,}={0,2})\b|"  # on ne considère que les chaînes base64 très longues
-            r"\b(?:0x[0-9A-Fa-f]{8,}|char\(\d{2,3}\)|unhex\('[0-9A-Fa-f]{4,}'\))\b",
+            r"""(
+                (?:%[0-9A-Fa-f]{2}){6,}                      # 6+ URL-encoded chars
+                |\b(?:[A-Za-z0-9+/]{40,}={0,2})\b            # Long base64 strings
+                |0x[0-9A-Fa-f]{6,}                            # Hex payload: 0xabcdef
+                |(?:char|unhex)\([0-9A-Fa-f]{4,}\)            # char(113), unhex('abcd')
+                |(?:\\x[0-9A-Fa-f]{2})+
+            )""",
             re.IGNORECASE
         ),
         "severity": 3
     },
     "DoS Attack": {
         "pattern": re.compile(
-            r"(\bGET\s+[^\s]+\s+HTTP/\d\.\d\s*$|"
-            r"\bPOST\s+[^\s]+\s+HTTP/\d\.\d\s+Content-Length:\s*0|"
-            r"\bHTTP/\d\.\d\s+[0-9]{3}\s+[-]{0,10}$)",
+            r"""(
+                \bGET\s+[^\s]+\s+HTTP/\d\.\d\s*$              # Incomplete GET
+                |\bPOST\s+[^\s]+\s+HTTP/\d\.\d\s+Content-Length:\s*0  # Zero-length POST
+                |\bHTTP/\d\.\d\s+[0-9]{3}\s+[-]{0,10}$        # Malformed response
+                |[?&][\w]+=[\w\s%]{500,}                      # Long query string (500+ chars)
+            )""",
             re.IGNORECASE
         ),
         "severity": 4
+    },
+    "CMS Probes": {
+        "pattern": re.compile(
+            r"(wp-admin|admin\.php|install\.php|setup\.php|wp-login\.php|joomla\.php|drupal\.php)",
+            re.IGNORECASE
+        ),
+        "severity": 3
     }
 }
 

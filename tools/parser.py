@@ -24,7 +24,7 @@ def parse_apache_log(contents: str) -> List[RowDTO]:
     # Regex principal (supporte les logs Apache classiques et variantes)
     log_pattern = (
         r'(?P<ip>\S+) (?P<remote_logname>\S+) (?P<user>\S+) \[(?P<timestamp>.*?)\] '
-        r'"(?P<method>\S+) (?P<url>\S+)(?: HTTP/(?P<protocol_version>\S+))?" (?P<status_code>\d+) '
+        r'"(?P<method>\S+) (?P<url>[^"]*?)(?: HTTP/(?P<protocol_version>\S+))?" (?P<status_code>\d+) '
         r'(?P<response_size>-|\d+)(?: "(?P<referrer>.*?)" "(?P<user_agent>.*?)")?'
     )
 
