@@ -26,7 +26,7 @@ from models.rowEntity import Row
 from models.logs_entity import Log
 from models.report_entity import Report
 from models.Intrusion_detected_entity import IntrusionDetected
-from db.database import get_db
+from db.database import SessionLocal, get_db
 from schemas.logDTO import LogDTO ,LogCreate, LogWithoutRowsDTO
 from schemas.rowDTO import RowDTO
 from fastapi import WebSocketDisconnect
