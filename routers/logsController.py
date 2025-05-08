@@ -26,7 +26,7 @@ from models.rowEntity import Row
 from models.logs_entity import Log
 from models.report_entity import Report
 from models.Intrusion_detected_entity import IntrusionDetected
-from db.database import get_db
+from db.database import SessionLocal, get_db
 from schemas.logDTO import LogDTO ,LogCreate, LogWithoutRowsDTO
 from schemas.rowDTO import RowDTO
 from fastapi import WebSocketDisconnect
@@ -932,23 +932,35 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 @router.websocket("/ws/{token}")
-async def websocket_endpoint(websocket: WebSocket, token: str, db: Session = Depends(get_db)):
+async def websocket_endpoint(websocket: WebSocket, token: str):
     """ WebSocket endpoint for real-time log updates. """
-    user = await get_user_from_token(token, db)  
-    if user is None:
-        await websocket.close(code=4000)
-        return
-    
-    room = user.room_name
-    await manager.connect(websocket, room)
-    
+    await websocket.accept()
+
+    # 🔧 Create the DB session manually
+    db = SessionLocal()
     try:
-        while True:
-            data = await websocket.receive_text()
-            newdata = await update_log(user, data, room, websocket, db)
-            await manager.broadcast_json({"type":"message","data":f"📢 Message from {room}: {newdata}"},room)
-    except WebSocketDisconnect:
-        manager.disconnect(websocket, room)
+        user = await get_user_from_token(token, db)
+        if user is None:
+            await websocket.close(code=4000)
+            return
+
+        room = user.room_name
+        await manager.connect(websocket, room)
+
+        try:
+            while True:
+                data = await websocket.receive_text()
+                newdata = await update_log(user, data, room, websocket, db)
+                await manager.broadcast_json({
+                    "type": "message",
+                    "data": f"📢 Message from {room}: {newdata}"
+                }, room)
+        except WebSocketDisconnect:
+            manager.disconnect(websocket, room)
+
+    finally:
+        # 🔒 Always close the DB session
+        db.close()
 
 async def get_user_from_token(token: str, db: Session) -> Optional[User]:
     """ Validate token and return the user object """
