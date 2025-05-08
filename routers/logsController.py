@@ -26,7 +26,7 @@ from models.rowEntity import Row
 from models.logs_entity import Log
 from models.report_entity import Report
 from models.Intrusion_detected_entity import IntrusionDetected
-from db.database import SessionLocal, get_db
+from db.database import get_db
 from schemas.logDTO import LogDTO ,LogCreate, LogWithoutRowsDTO
 from schemas.rowDTO import RowDTO
 from fastapi import WebSocketDisconnect
@@ -933,10 +933,6 @@ manager = ConnectionManager()
 
 @router.websocket("/ws/{token}")
 async def websocket_endpoint(websocket: WebSocket, token: str):
-    """ WebSocket endpoint for real-time log updates. """
-    await websocket.accept()
-
-    # 🔧 Create the DB session manually
     db = SessionLocal()
     try:
         user = await get_user_from_token(token, db)
@@ -945,6 +941,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
             return
 
         room = user.room_name
+
+        # ✅ Accept should happen only once, inside manager.connect
         await manager.connect(websocket, room)
 
         try:
@@ -957,9 +955,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
                 }, room)
         except WebSocketDisconnect:
             manager.disconnect(websocket, room)
-
     finally:
-        # 🔒 Always close the DB session
         db.close()
 
 async def get_user_from_token(token: str, db: Session) -> Optional[User]:
