@@ -23,7 +23,7 @@ def get_notifications(user_data: dict = Depends(get_current_user), db: Session =
         if user is None:
             raise HTTPException(status_code=401, detail="Authentication failed.")
         
-        notifications = user.notifications[::-1]  # Assurez-vous que la relation est bien définie dans User
+        notifications = db.query(Notification).filter_by(user_id=user.id).order_by(Notification.created_at).all()
         if not notifications:
             return []
         
