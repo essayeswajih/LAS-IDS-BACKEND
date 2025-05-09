@@ -1069,6 +1069,7 @@ async def update_log(user: User, log_data: str, room: str, websocket: WebSocket,
         db.refresh(log)
 
         # Check for new rows and handle notifications/reports
+        print(len(lastrows))
         if len(lastrows) > 0:
             intrusions = detect(file_type, lastrows)
             noti_dto = NotificationDTO(
@@ -1077,7 +1078,14 @@ async def update_log(user: User, log_data: str, room: str, websocket: WebSocket,
                 icon="Alert",
                 details="Suspicious activity report for " + filename + " at " + str(func.now())
             )
+            noti_dto1 = NotificationDTO(
+                title=str(len(intrusions)) + " Intrusion Detected for " + filename,
+                message=str(len(intrusions)) + " Intrusion Detected for " + filename,
+                icon="Alert",
+                details=str(len(intrusions))+" Suspicious activity detected for " + filename + " at " + str(func.now())
+            )
             send_notification_to_user(noti_dto, user.id, db)
+            send_notification_to_user(noti_dto1, user.id, db)
             new_report = ReportCreateRequest(
                 intrusions=intrusions,
                 title=filename + " report",
@@ -1113,7 +1121,13 @@ async def get_file_hash(
     return {"hash": file.file_hash}
 
 def getlastRows(last_datetime: Optional[datetime], rows: List[RowDTO]) -> List[RowDTO]:
-    if last_datetime is None:
+    try:
+        if last_datetime is None:
+            return rows
+        apache_format = "%d/%b/%Y:%H:%M:%S %z"
+        last_datetime = datetime.strptime(rows[0].timestamp, apache_format)
+    except ValueError:
+        last_datetime = None
         return rows
     # Assume UTC for last_datetime if naive
     if last_datetime.tzinfo is None:
