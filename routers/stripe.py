@@ -44,6 +44,7 @@ def create_checkout_session(
             logger.info(f"Creating Stripe customer for user {user.id}")
             customer = stripe.Customer.create(email=user.email)
             user.stripe_customer_id = customer.id
+            db.commit()
             logger.info(f"Stripe customer {customer.id} created and saved for user {user.id}")
 
         # Create a Checkout Session for a subscription
@@ -86,7 +87,7 @@ def check_subscription(
     if not user:
         logger.warning(f"User not found for ID: {user_data['id']}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed.")
-    if not user.stripe_customer_id or user.role == RoleEnum.admin:
+    if not user.stripe_customer_id and user.role == RoleEnum.admin:
         user.role = RoleEnum.user
         db.commit()
         return {"subscribed": False}
@@ -105,6 +106,7 @@ def check_subscription(
             return {"subscribed": True}
         else:
             if user.role == RoleEnum.admin:
+                user.stripe_customer_id = None
                 user.role = RoleEnum.user
                 db.commit()
             return {"subscribed": False}
