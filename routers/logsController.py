@@ -320,7 +320,7 @@ def find_top_rows_by_log_id(log_id: int, db: Session = Depends(get_db)):
     
     return top_rows
 
-# GET: get top status by log id
+# GET: get top top paths by log id
 @router.get("/logs/{log_id}/toppaths", response_model=list[dict[str, int]])
 def find_top_paths_by_log_id(log_id: int, db: Session = Depends(get_db)):
     log = db.query(Log).filter(Log.id == log_id).first()
@@ -336,7 +336,9 @@ def find_top_paths_by_log_id(log_id: int, db: Session = Depends(get_db)):
         .all()
     
     # Format the result as a list of dictionaries
-    top_paths = [{path[0]: path[1]} for path in paths]
+    top_paths = []
+    if paths :
+        top_paths = [{path[0]: path[1]} for path in paths]
     
     return top_paths
 

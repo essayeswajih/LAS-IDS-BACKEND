@@ -67,8 +67,6 @@ def create_checkout_session(
             success_url=os.getenv("SUCCESS_URL") + "?session_id={CHECKOUT_SESSION_ID}",
             cancel_url=os.getenv("CANCEL_URL"),
         )
-        user.role = RoleEnum.pro
-        db.commit()
         logger.info(f"Checkout session {session.id} created successfully")
         return JSONResponse({"id": session.id})
 
@@ -97,6 +95,14 @@ def check_subscription(
             customer=user.stripe_customer_id,
             status="succeeded"
         )
-        return {"subscribed": len(charges.data) > 0}  
+        if(len(charges.data) > 0):
+            user.role = RoleEnum.admin
+            db.commit()
+            return {"subscribed": True}
+        else:
+            if user.role == RoleEnum.admin:
+                user.role = RoleEnum.user
+                db.commit()
+            return {"subscribed": False}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
