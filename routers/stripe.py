@@ -86,6 +86,10 @@ def check_subscription(
     if not user:
         logger.warning(f"User not found for ID: {user_data['id']}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed.")
+    if not user.stripe_customer_id or user.role == RoleEnum.admin:
+        user.role = RoleEnum.user
+        db.commit()
+        return {"subscribed": False}
     if not user.stripe_customer_id:
         return {"subscribed": False}
 
