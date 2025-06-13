@@ -116,7 +116,7 @@ def update_user(
 ):
     # Authenticate the current user
     current_user = db.query(User).filter_by(username=user_data["username"], id=user_data["id"]).first()
-    if current_user is None or current_user.role != RoleEnum.admin:
+    if current_user is None or (current_user.role != RoleEnum.admin and current_user.id != id):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed.")
 
     # Find the user to update
