@@ -93,7 +93,6 @@ def check_subscription(
         return {"subscribed": False}
     if not user.stripe_customer_id:
         return {"subscribed": False}
-
     try:
         # Check for successful one-time payments
         charges = stripe.Charge.list(
