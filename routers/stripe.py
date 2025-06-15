@@ -101,7 +101,7 @@ def check_subscription(
             status="succeeded"
         )
         if(len(charges.data) > 0):
-            user.role = RoleEnum.admin
+            user.role = RoleEnum.pro
             db.commit()
             return {"subscribed": True}
         else:
